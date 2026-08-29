@@ -8,7 +8,8 @@ try:
 except:
   pass
 
-DB_NAME = "/Users/dominiqueboulanger/Desktop/appli_TCF_24_aout/snapeval.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "snapeval.db")
 EXAMEN_NOM = "TCF oral"
 
 
@@ -366,10 +367,12 @@ class ApplicationTCF:
               icon="delete", on_click=lambda r_id=row_id: supprimer(r_id)
           ).props("flat dense").classes("text-red-600").tooltip("Supprimer")
 
-
 @ui.page("/")
 def main_page():
   ApplicationTCF()
 
+# C'est l'objet app standard de NiceGUI (basé sur FastAPI) qu'Uvicorn recherche :
+app = ui.get_app()
 
-ui.run(port=int(os.environ.get("PORT", 8080)), reload=False)
+if __name__ in {"__main__", "__mp_main__"}:
+    ui.run(port=int(os.environ.get("PORT", 8080)), reload=False)
