@@ -1,7 +1,7 @@
 from collections import Counter
 import os
 import sqlite3
-from nicegui import ui
+from nicegui import ui, app
 
 try:
   os.system("lsof -t -i:9000 | xargs kill -9 > /dev/null 2>&1")
@@ -23,7 +23,6 @@ class ApplicationTCF:
     """Charge les critères, niveaux et marqueurs depuis la table unique aspects_qualitatifs_langue."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # On récupère les critères, niveaux et marqueurs
     cursor.execute("""
             SELECT id, critere, niveau, descripteur, marqueur 
             FROM aspects_qualitatifs_langue 
@@ -39,20 +38,16 @@ class ApplicationTCF:
     rows = self.charger_donnees_db()
     criteres_dict = {}
 
-    # Ordre standard des niveaux pour le tri
     ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
     for row_id, critere, niveau, descripteur, marqueur in rows:
-      # Utilisation du marqueur comme texte principal (ou descripteur si présent)
       texte = marqueur if marqueur else (descripteur if descripteur else "")
       if critere not in criteres_dict:
         criteres_dict[critere] = []
       criteres_dict[critere].append((niveau, texte))
 
-    # Formater sous forme de liste de dictionnaires exploitable par l'UI
     resultat = []
     for titre, paliers in criteres_dict.items():
-      # Trier les paliers selon l'ordre A1 -> C2
       paliers_tries = sorted(
           paliers, key=lambda x: ordre_niveaux.get(x[0], 99)
       )
@@ -255,7 +250,6 @@ class ApplicationTCF:
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Vérifier si l'enregistrement existe déjà pour ce couple critère/niveau
     cursor.execute(
         """
         SELECT id FROM aspects_qualitatifs_langue 
@@ -367,12 +361,11 @@ class ApplicationTCF:
               icon="delete", on_click=lambda r_id=row_id: supprimer(r_id)
           ).props("flat dense").classes("text-red-600").tooltip("Supprimer")
 
+
 @ui.page("/")
 def main_page():
   ApplicationTCF()
 
-# C'est l'objet app standard de NiceGUI (basé sur FastAPI) qu'Uvicorn recherche :
-app = ui.get_app()
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(port=int(os.environ.get("PORT", 8080)), reload=False)
