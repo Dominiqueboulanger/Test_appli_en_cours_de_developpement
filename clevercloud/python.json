@@ -1,0 +1,6 @@
+{
+  "deploy": {
+    "server": "uvicorn",
+    "module": "snapeval:app"
+  }
+}
