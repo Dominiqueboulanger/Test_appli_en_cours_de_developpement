@@ -362,17 +362,20 @@ class ApplicationTCF:
           ).props("flat dense").classes("text-red-600").tooltip("Supprimer")
 
 
+# --- 9. CONFIGURATION ET LANCEMENT SERVEUR ---
+
 @ui.page("/")
 def main_page():
-  ApplicationTCF()
+    ApplicationTCF()
 
-
+# NiceGUI gère le serveur intégré uniquement si le script est exécuté directement (en local).
+# Sur Clever Cloud, uWSGI importe le module et ignore ce bloc, évitant ainsi le conflit de port (Address already in use).
 if __name__ in {"__main__", "__mp_main__"}:
-  ui.run(
-      title="TCF Oral",
-      host="0.0.0.0",
-      port=int(os.environ.get("PORT", 8080)),
-      reload=False,
-      reconnect_timeout=30,
-      show=False,
-  )
+    ui.run(
+        title="TCF Oral", 
+        host='0.0.0.0', 
+        port=int(os.environ.get("PORT", 8080)), 
+        reload=False,
+        reconnect_timeout=30,
+        show=False 
+    )
