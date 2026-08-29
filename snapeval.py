@@ -1,7 +1,7 @@
 from collections import Counter
 import os
 import sqlite3
-from nicegui import ui
+from nicegui import app, ui
 
 DB_NAME = "/Users/dominiqueboulanger/Desktop/appli_TCF_24_aout/snapeval.db"
 EXAMEN_NOM = "TCF oral"
@@ -17,7 +17,6 @@ class ApplicationTCF:
     """Charge les critères, niveaux et marqueurs depuis la table unique aspects_qualitatifs_langue."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # On récupère les critères, niveaux et marqueurs
     cursor.execute("""
             SELECT id, critere, niveau, descripteur, marqueur 
             FROM aspects_qualitatifs_langue 
@@ -33,20 +32,16 @@ class ApplicationTCF:
     rows = self.charger_donnees_db()
     criteres_dict = {}
 
-    # Ordre standard des niveaux pour le tri
     ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
     for row_id, critere, niveau, descripteur, marqueur in rows:
-      # Utilisation du marqueur comme texte principal (ou descripteur si présent)
       texte = marqueur if marqueur else (descripteur if descripteur else "")
       if critere not in criteres_dict:
         criteres_dict[critere] = []
       criteres_dict[critere].append((niveau, texte))
 
-    # Formater sous forme de liste de dictionnaires exploitable par l'UI
     resultat = []
     for titre, paliers in criteres_dict.items():
-      # Trier les paliers selon l'ordre A1 -> C2
       paliers_tries = sorted(
           paliers, key=lambda x: ordre_niveaux.get(x[0], 99)
       )
@@ -173,7 +168,8 @@ class ApplicationTCF:
             "text-base font-bold text-slate-700 border-b pb-1 uppercase"
         )
         lbl_choix = ui.label("Non noté").classes(
-            "text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded w-fit"
+            "text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5"
+            " rounded w-fit"
         )
         setattr(self, f"lbl_choix_{idx}", lbl_choix)
 
@@ -249,7 +245,6 @@ class ApplicationTCF:
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Vérifier si l'enregistrement existe déjà pour ce couple critère/niveau
     cursor.execute(
         """
         SELECT id FROM aspects_qualitatifs_langue 
@@ -362,20 +357,20 @@ class ApplicationTCF:
           ).props("flat dense").classes("text-red-600").tooltip("Supprimer")
 
 
-# --- 9. CONFIGURATION ET LANCEMENT SERVEUR ---
-
 @ui.page("/")
 def main_page():
-    ApplicationTCF()
+  ApplicationTCF()
 
-# NiceGUI gère le serveur intégré uniquement si le script est exécuté directement (en local).
-# Sur Clever Cloud, uWSGI importe le module et ignore ce bloc, évitant ainsi le conflit de port (Address already in use).
+
+# Mode hybride : ui.run() uniquement si exécuté directement en local,
+# ignoré en production sous uWSGI sur Clever Cloud pour éviter les conflits de port.
 if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(
-        title="TCF Oral", 
-        host='0.0.0.0', 
-        port=int(os.environ.get("PORT", 8080)), 
-        reload=False,
-        reconnect_timeout=30,
-        show=False 
-    )
+  ui.run(
+      title="TCF Oral",
+      host="0.0.0.0",
+      port=int(os.environ.get("PORT", 8080)),
+      reload=False,
+      reconnect_timeout=30,
+      show=False,
+  )
+```[cite: 2]
