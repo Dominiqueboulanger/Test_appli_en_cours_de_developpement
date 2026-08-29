@@ -368,5 +368,11 @@ def main_page():
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-  port = int(os.environ.get("PORT", 8080))
-  ui.run(port=port, reload=False)
+  ui.run(
+      title="TCF Oral",
+      host="0.0.0.0",
+      port=int(os.environ.get("PORT", 8080)),
+      reload=False,
+      reconnect_timeout=30,
+      show=False,
+  )
