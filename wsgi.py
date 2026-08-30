@@ -1,5 +1,8 @@
-from snapeval import *  # Importe toute votre application NiceGUI
-from nicegui import app
+import os
+from snapeval import ApplicationTCF
+from nicegui import app, ui
 
-# Uvicorn cherche explicitement l'objet 'app' importé de nicegui
-# pour piloter le serveur ASGI en production.
+# On instancie explicitement l'application pour qu'Uvicorn la charge sans ambiguïté
+@ui.page("/")
+def main_page():
+    ApplicationTCF()
