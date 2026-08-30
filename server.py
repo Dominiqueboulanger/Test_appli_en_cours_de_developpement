@@ -1,22 +1,15 @@
 import os
 import sys
 import traceback
-
-try:
-    import uvicorn
-    from wsgi import app
-except Exception as e:
-    with open("crash_error.log", "w") as f:
-        f.write("Erreur au chargement :\n")
-        traceback.print_exc(file=f)
-    raise e
+import uvicorn
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
+    print(f"Démarrage du serveur sur le port {port}...", file=sys.stderr)
     try:
-        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+        import wsgi
+        uvicorn.run(wsgi.app, host="0.0.0.0", port=port, log_level="debug")
     except Exception as e:
-        with open("crash_error.log", "a") as f:
-            f.write("Erreur au lancement d'Uvicorn :\n")
-            traceback.print_exc(file=f)
-        raise e
+        print("=== ERREUR CRITIQUE AU LANCEMENT ===", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
