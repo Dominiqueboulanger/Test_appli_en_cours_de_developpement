@@ -2,17 +2,19 @@ from flask import Flask, render_template, jsonify, request, send_file
 import sqlite3
 import os
 import io
-from weasyprint import HTML
+
+# Gestion sécurisée de WeasyPrint en production cloud si les libs C manquent
+try:
+    from weasyprint import HTML
+    WEASYPRINT_DISPONIBLE = True
+except (ImportError, OSError):
+    WEASYPRINT_DISPONIBLE = False
 
 app = Flask(__name__)
 
 # Chemin vers la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if os.environ.get("CC_Net_ID") or os.environ.get(" CleverCloud"): 
-    DB_NAME = "/tmp/snapeval.db"
-    # Pensez à copier votre base initiale vers /tmp au démarrage si elle contient vos données de référence !
-else:
-    DB_NAME = os.path.join(BASE_DIR, "snapeval.db")
+DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
 
 # Route pour la page d'accueil
 @app.route("/")
@@ -74,6 +76,9 @@ def evaluer():
 # Route pour générer un PDF
 @app.route("/api/generer-pdf/<int:candidat_id>")
 def generer_pdf(candidat_id):
+    if not WEASYPRINT_DISPONIBLE:
+        return "Génération PDF non disponible (dépendances système WeasyPrint absentes sur le serveur)", 503
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
@@ -93,8 +98,6 @@ def generer_pdf(candidat_id):
     </table>
     """
     pdf_bytes = HTML(string=html_content).write_pdf()
-    
-    # Utilisation de io.BytesIO pour transformer les octets en fichier virtuel lisible par Flask
     return send_file(
         io.BytesIO(pdf_bytes),
         as_attachment=True,
