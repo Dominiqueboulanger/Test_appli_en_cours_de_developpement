@@ -1,1 +1,71 @@
- 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snapeval - Évaluation TCF Oral</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Évaluation TCF Oral — Grille et Bilan</h1>
+
+        <!-- Onglets -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="changerOnglet('evaluation')">Évaluation TCF Oral</button>
+            <button class="tab-button" onclick="changerOnglet('admin')">Admin Marqueurs</button>
+        </div>
+
+        <!-- Contenu de l'onglet Évaluation -->
+        <div id="evaluation" class="tab-content">
+            <div id="cartes-evaluation" class="cartes-container"></div>
+            <div class="synthese-container">
+                <h2>Synthèse & Évaluation Finale</h2>
+                <div class="form-group">
+                    <label for="candidat-id">ID Candidat :</label>
+                    <input type="number" id="candidat-id" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="niveau-global">Niveau global :</label>
+                    <select id="niveau-global">
+                        <option value="A1">A1</option>
+                        <option value="A2">A2</option>
+                        <option value="B1" selected>B1</option>
+                        <option value="B2">B2</option>
+                        <option value="C1">C1</option>
+                        <option value="C2">C2</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="commentaire">Commentaire :</label>
+                    <textarea id="commentaire" rows="3"></textarea>
+                </div>
+                <div class="button-group">
+                    <button onclick="enregistrerEvaluation()">Enregistrer l'évaluation</button>
+                    <button onclick="genererPDF()">Générer PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu de l'onglet Admin -->
+        <div id="admin" class="tab-content" style="display: none;">
+            <h2>Admin Marqueurs</h2>
+            <p>Contenu à venir pour gérer les marqueurs et critères.</p>
+        </div>
+    </div>
+
+    <!-- Service Worker pour la PWA -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/static/sw.js")
+                    .then(registration => console.log("ServiceWorker enregistré"))
+                    .catch(err => console.log("Erreur ServiceWorker: ", err));
+            });
+        }
+    </script>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html> 
