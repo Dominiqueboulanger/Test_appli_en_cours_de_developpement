@@ -1,5 +1,5 @@
 {
   "deploy": {
-    "command": "python server.py"
+    "command": "gunicorn app:app"
   }
 }
