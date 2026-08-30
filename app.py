@@ -3,7 +3,14 @@ import sqlite3
 import os
 import io
 
-# Gestion sécurisée de WeasyPrint en production cloud si les libs C manquent
+# Définition du chemin de base en premier
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Création sécurisée du dossier data si besoin
+os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
+DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
+
+# Gestion sécurisée de WeasyPrint (en local et sur le cloud si les libs C manquent)
 try:
     from weasyprint import HTML
     WEASYPRINT_DISPONIBLE = True
@@ -11,17 +18,13 @@ except (ImportError, OSError):
     WEASYPRINT_DISPONIBLE = False
 
 app = Flask(__name__)
-os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
-
-# Chemin vers la base de données
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
 
 # Route pour la page d'accueil
 @app.route("/")
 def index():
     return render_template("index.html")
 
+# Route pour récupérer les critères et niveaux
 @app.route("/api/criteres")
 def get_criteres():
     try:
@@ -37,6 +40,7 @@ def get_criteres():
     except Exception as e:
         return jsonify({"erreur": str(e), "db_path": DB_NAME, "existe": os.path.exists(DB_NAME)}), 500
 
+    # Reconstruire la structure des critères
     criteres_dict = {}
     ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
@@ -79,7 +83,7 @@ def evaluer():
 @app.route("/api/generer-pdf/<int:candidat_id>")
 def generer_pdf(candidat_id):
     if not WEASYPRINT_DISPONIBLE:
-        return "Génération PDF non disponible (dépendances système WeasyPrint absentes sur le serveur)", 503
+        return "Génération PDF non disponible (dépendances système WeasyPrint absentes)", 503
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
