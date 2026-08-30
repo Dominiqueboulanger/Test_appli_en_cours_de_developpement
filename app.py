@@ -11,6 +11,7 @@ except (ImportError, OSError):
     WEASYPRINT_DISPONIBLE = False
 
 app = Flask(__name__)
+os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
 
 # Chemin vers la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
