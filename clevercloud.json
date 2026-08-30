@@ -1,8 +1,5 @@
 {
-  "build": {
-    "command": "pip install -r requirements.txt"
-  },
-  "run": {
+  "deploy": {
     "command": "python server.py"
   }
 }
