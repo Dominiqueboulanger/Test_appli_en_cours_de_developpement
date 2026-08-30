@@ -3,11 +3,7 @@ import os
 import sqlite3
 from nicegui import ui, app
 
-try:
-  os.system("lsof -t -i:9000 | xargs kill -9 > /dev/null 2>&1")
-except:
-  pass
-
+# Définition propre du chemin de la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "snapeval.db")
 EXAMEN_NOM = "TCF oral"
@@ -20,27 +16,31 @@ class ApplicationTCF:
     self.init_ui()
 
   def charger_donnees_db(self):
-    """Charge les critères, niveaux et marqueurs depuis la table unique aspects_qualitatifs_langue."""
+    """Charge les critères, niveaux et marqueurs depuis la table aspects_qualitatifs_langue."""
+    if not os.path.exists(DB_NAME):
+      return []
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("""
-            SELECT id, critere, niveau, descripteur, marqueur 
-            FROM aspects_qualitatifs_langue 
-            ORDER BY id
-        """)
-    rows = cursor.fetchall()
+    try:
+      cursor.execute("""
+                SELECT id, critere, niveau, descripteur, marqueur 
+                FROM aspects_qualitatifs_langue 
+                ORDER BY id
+            """)
+      rows = cursor.fetchall()
+    except sqlite3.OperationalError:
+      rows = []
     conn.close()
     return rows
 
   @property
   def criteres_actifs(self):
-    """Reconstruit dynamiquement la structure des critères à partir de la base de données."""
     rows = self.charger_donnees_db()
     criteres_dict = {}
-
     ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
-    for row_id, critere, niveau, descripteur, marqueur in rows:
+    for row in rows:
+      row_id, critere, niveau, descripteur, marqueur = row
       texte = marqueur if marqueur else (descripteur if descripteur else "")
       if critere not in criteres_dict:
         criteres_dict[critere] = []
@@ -52,7 +52,6 @@ class ApplicationTCF:
           paliers, key=lambda x: ordre_niveaux.get(x[0], 99)
       )
       resultat.append({"titre": titre, "paliers": paliers_tries})
-
     return resultat
 
   def init_ui(self):
@@ -110,7 +109,7 @@ class ApplicationTCF:
                 " self-end"
             )
 
-      # --- ONGLET 2 : ADMIN (aspects_qualitatifs_langue) ---
+      # --- ONGLET 2 : ADMIN ---
       with ui.tab_panel(tab_admin):
         with ui.column().classes("w-full max-w-4xl mx-auto p-4 gap-4"):
           ui.label(
@@ -161,6 +160,10 @@ class ApplicationTCF:
     self.container_cartes.clear()
     criteres = self.criteres_actifs
     with self.container_cartes:
+      if not criteres:
+        ui.label(
+            "Aucun critère trouvé dans la base de données."
+        ).classes("text-sm text-amber-600 italic p-4")
       for idx, critere in enumerate(criteres):
         self.creer_carte_critere(idx, critere)
 
@@ -234,7 +237,6 @@ class ApplicationTCF:
         f" {self.select_niveau_global.value}",
         color="positive",
     )
-    self.actualiser_cartes_evaluation()
 
   def sauvegarder_marqueur(self):
     crit = self.input_critere.value.strip()
@@ -242,10 +244,7 @@ class ApplicationTCF:
     marq = self.input_marqueur.value.strip()
 
     if not crit or not marq:
-      ui.notify(
-          "Veuillez remplir le critère et le texte du marqueur.",
-          color="negative",
-      )
+      ui.notify("Veuillez remplir le critère et le texte.", color="negative")
       return
 
     conn = sqlite3.connect(DB_NAME)
@@ -288,18 +287,23 @@ class ApplicationTCF:
 
   def actualiser_admin_liste(self):
     self.container_admin_liste.clear()
+    if not os.path.exists(DB_NAME):
+      return
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, critere, niveau, marqueur FROM aspects_qualitatifs_langue"
-        " ORDER BY critere, niveau"
-    )
-    lignes = cursor.fetchall()
+    try:
+      cursor.execute(
+          "SELECT id, critere, niveau, marqueur FROM aspects_qualitatifs_langue"
+          " ORDER BY critere, niveau"
+      )
+      lignes = cursor.fetchall()
+    except sqlite3.OperationalError:
+      lignes = []
     conn.close()
 
     if not lignes:
       with self.container_admin_liste:
-        ui.label("Aucun marqueur trouvé dans la base.").classes(
+        ui.label("Aucun marqueur trouvé.").classes(
             "text-xs text-slate-400 italic"
         )
       return
@@ -307,8 +311,7 @@ class ApplicationTCF:
     for row_id, critere, niveau, marqueur in lignes:
       with self.container_admin_liste:
         with ui.row().classes(
-            "w-full items-center justify-between p-2 bg-slate-50 rounded"
-            " border gap-2"
+            "w-full items-center justify-between p-2 bg-slate-50 rounded border gap-2"
         ):
           ui.label(critere).classes(
               "text-xs font-bold text-slate-800 w-32 uppercase"
@@ -335,15 +338,13 @@ class ApplicationTCF:
             )
             conn.commit()
             conn.close()
-            ui.notify("Marqueur mis à jour !", color="positive")
+            ui.notify("Mis à jour !", color="positive")
             self.actualiser_cartes_evaluation()
 
           ui.button(
               icon="save",
               on_click=lambda r_id=row_id, inp=input_edit: modifier(r_id, inp),
-          ).props("flat dense").classes("text-blue-600").tooltip(
-              "Modifier / Enregistrer"
-          )
+          ).props("flat dense").classes("text-blue-600")
 
           def supprimer(r_id=row_id):
             conn = sqlite3.connect(DB_NAME)
@@ -353,13 +354,13 @@ class ApplicationTCF:
             )
             conn.commit()
             conn.close()
-            ui.notify("Marqueur supprimé.", color="warning")
+            ui.notify("Supprimé.", color="warning")
             self.actualiser_admin_liste()
             self.actualiser_cartes_evaluation()
 
           ui.button(
               icon="delete", on_click=lambda r_id=row_id: supprimer(r_id)
-          ).props("flat dense").classes("text-red-600").tooltip("Supprimer")
+          ).props("flat dense").classes("text-red-600")
 
 
 @ui.page("/")
@@ -367,5 +368,9 @@ def main_page():
   ApplicationTCF()
 
 
-if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(port=int(os.environ.get("PORT", 8080)), reload=False)
+# Lancement standard compatible avec Uvicorn sur Clever Cloud
+ui.run(
+    port=int(os.environ.get("PORT", 8080)),
+    storage_secret="tcf_oral_secret",
+    reload=False,
+)
