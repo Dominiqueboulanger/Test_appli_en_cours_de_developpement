@@ -8,3 +8,6 @@
     "cmd": "gunicorn app:app"
   }
 }
+{
+  "dependencies": ["pango", "gdk-pixbuf", "cairo"]
+}
