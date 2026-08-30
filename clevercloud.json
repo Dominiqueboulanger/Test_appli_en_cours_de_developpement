@@ -1,5 +1,19 @@
 {
+  "name": "Snapeval",
+  "type": "python",
+  "build": {
+    "python_version": "3.14",
+    "pip_requirements": "requirements.txt"
+  },
   "deploy": {
-    "command": "gunicorn app:app"
-  }
+    "web": {
+      "start_command": "python3 app.py"
+    }
+  },
+  "addons": [
+    {
+      "name": "sqlite",
+      "plan": "dev"
+    }
+  ]
 }
