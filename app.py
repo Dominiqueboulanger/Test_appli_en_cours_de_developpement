@@ -21,20 +21,21 @@ DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
 def index():
     return render_template("index.html")
 
-# Route pour récupérer les critères et niveaux
 @app.route("/api/criteres")
 def get_criteres():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, critere, niveau, descripteur, marqueur
-        FROM aspects_qualitatifs_langue
-        ORDER BY id
-    """)
-    rows = cursor.fetchall()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, critere, niveau, descripteur, marqueur
+            FROM aspects_qualitatifs_langue
+            ORDER BY id
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+    except Exception as e:
+        return jsonify({"erreur": str(e), "db_path": DB_NAME, "existe": os.path.exists(DB_NAME)}), 500
 
-    # Reconstruire la structure des critères
     criteres_dict = {}
     ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
 
