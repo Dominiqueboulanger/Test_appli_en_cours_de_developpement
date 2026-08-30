@@ -1,18 +1,19 @@
-
 from flask import Flask, render_template, jsonify, request, send_file
 import sqlite3
 import os
+import io
 from weasyprint import HTML
 
 app = Flask(__name__)
 
 # Chemin vers la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if os.environ.get("CC_Net_ID") or os.environ.get(" CleverCloud"): # ou test simple d'environnement
+if os.environ.get("CC_Net_ID") or os.environ.get(" CleverCloud"): 
     DB_NAME = "/tmp/snapeval.db"
     # Pensez à copier votre base initiale vers /tmp au démarrage si elle contient vos données de référence !
 else:
     DB_NAME = os.path.join(BASE_DIR, "snapeval.db")
+
 # Route pour la page d'accueil
 @app.route("/")
 def index():
@@ -91,9 +92,11 @@ def generer_pdf(candidat_id):
         {"".join(f"<tr><td>{eval[3]}</td><td>{eval[4]}</td><td>{eval[5]}</td><td>{eval[6]}</td></tr>" for eval in evaluations)}
     </table>
     """
-    pdf = HTML(string=html_content).write_pdf()
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    
+    # Utilisation de io.BytesIO pour transformer les octets en fichier virtuel lisible par Flask
     return send_file(
-        pdf,
+        io.BytesIO(pdf_bytes),
         as_attachment=True,
         download_name=f"bilan_tcf_{candidat_id}.pdf",
         mimetype="application/pdf"
