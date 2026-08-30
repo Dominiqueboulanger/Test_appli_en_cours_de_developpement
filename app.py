@@ -8,8 +8,7 @@ app = Flask(__name__)
 
 # Chemin vers la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
-
+DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapeval.db")
 # Route pour la page d'accueil
 @app.route("/")
 def index():
