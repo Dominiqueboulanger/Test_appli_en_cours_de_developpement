@@ -1,8 +1,4 @@
-import os
-from snapeval import ApplicationTCF
-from nicegui import app, ui
+import snapeval
+from nicegui import app
 
-# On instancie explicitement l'application pour qu'Uvicorn la charge sans ambiguïté
-@ui.page("/")
-def main_page():
-    ApplicationTCF()
+# Uvicorn récupère automatiquement cet objet 'app' pour lancer le serveur ASGI
