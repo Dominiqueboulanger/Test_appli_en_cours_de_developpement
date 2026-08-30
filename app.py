@@ -8,7 +8,11 @@ app = Flask(__name__)
 
 # Chemin vers la base de données
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapeval.db")
+if os.environ.get("CC_Net_ID") or os.environ.get(" CleverCloud"): # ou test simple d'environnement
+    DB_NAME = "/tmp/snapeval.db"
+    # Pensez à copier votre base initiale vers /tmp au démarrage si elle contient vos données de référence !
+else:
+    DB_NAME = os.path.join(BASE_DIR, "snapeval.db")
 # Route pour la page d'accueil
 @app.route("/")
 def index():
