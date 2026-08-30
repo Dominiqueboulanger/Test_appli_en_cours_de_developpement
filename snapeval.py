@@ -370,6 +370,7 @@ def main_page():
 
 # Lancement standard compatible avec Uvicorn sur Clever Cloud
 ui.run(
+    host="0.0.0.0",
     port=int(os.environ.get("PORT", 8080)),
     storage_secret="tcf_oral_secret",
     reload=False,
