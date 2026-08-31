@@ -56,27 +56,38 @@ def get_criteres():
 @app.route("/api/evaluer", methods=["POST"])
 def evaluer():
     data = request.json
+    print("Données reçues du front-end :", data)  # Visible dans les logs Clever Cloud
+    
+    if not data:
+        return jsonify({"erreur": "Aucune donnée reçue"}), 400
+
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO evaluations_candidats (candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            data.get("candidat_id", 1),
-            data.get("examinateur", "Dominique"),
-            data.get("type_epreuve", "TCF oral"),
-            data.get("critere", ""),
-            data.get("niveau", ""),
-            data.get("note", 0),
-            data.get("commentaire", "")
-        ))
+
+        # Si le front-end envoie une liste d'évaluations d'un coup
+        evaluations_list = data if isinstance(data, list) else [data]
+
+        for item in evaluations_list:
+            cursor.execute("""
+                INSERT INTO evaluations_candidats (candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                item.get("candidat_id", 1),
+                item.get("examinateur", "Dominique"),
+                item.get("type_epreuve", "TCF oral"),
+                item.get("critere", ""),
+                item.get("niveau", ""),
+                item.get("note", 0),
+                item.get("commentaire", "")
+            ))
+            
         conn.commit()
         conn.close()
         return jsonify({"status": "success"})
     except Exception as e:
+        print("Erreur SQL lors de l'enregistrement :", str(e))
         return jsonify({"erreur": str(e)}), 500
-
 # Route pour générer un PDF avec ReportLab
 @app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
