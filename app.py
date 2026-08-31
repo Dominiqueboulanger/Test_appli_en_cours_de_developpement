@@ -1,115 +1,103 @@
-from flask import Flask, render_template, jsonify, request, send_file
-import sqlite3
-import os
+from flask import Flask, send_file, jsonify, request
+from flask_cors import CORS
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 import io
-
-# Définition du chemin de base en premier
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Création sécurisée du dossier data si besoin
-os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
-DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
-
-# Gestion sécurisée de WeasyPrint (en local et sur le cloud si les libs C manquent)
-try:
-    from weasyprint import HTML
-    WEASYPRINT_DISPONIBLE = True
-except (ImportError, OSError):
-    WEASYPRINT_DISPONIBLE = False
+import sqlite3
 
 app = Flask(__name__)
+CORS(app)
 
-# Route pour la page d'accueil
+def get_db_connection():
+    # Remplace 'database.db' par le nom exact de ton fichier de base de données si nécessaire
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
 @app.route("/")
-def index():
-    return render_template("index.html")
+def home():
+    return jsonify({"status": "API en ligne", "app": "Évaluation TCF Oral"})
 
-# Route pour récupérer les critères et niveaux
-@app.route("/api/criteres")
-def get_criteres():
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, critere, niveau, descripteur, marqueur
-            FROM aspects_qualitatifs_langue
-            ORDER BY id
-        """)
-        rows = cursor.fetchall()
-        conn.close()
-    except Exception as e:
-        return jsonify({"erreur": str(e), "db_path": DB_NAME, "existe": os.path.exists(DB_NAME)}), 500
-
-    # Reconstruire la structure des critères
-    criteres_dict = {}
-    ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
-
-    for row_id, critere, niveau, descripteur, marqueur in rows:
-        texte = marqueur if marqueur else (descripteur if descripteur else "")
-        if critere not in criteres_dict:
-            criteres_dict[critere] = []
-        criteres_dict[critere].append({"niveau": niveau, "texte": texte})
-
-    resultat = []
-    for titre, paliers in criteres_dict.items():
-        paliers_tries = sorted(paliers, key=lambda x: ordre_niveaux.get(x["niveau"], 99))
-        resultat.append({"titre": titre, "paliers": paliers_tries})
-
-    return jsonify(resultat)
-
-# Route pour enregistrer une évaluation
-@app.route("/api/evaluer", methods=["POST"])
-def evaluer():
-    data = request.json
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO evaluations_candidats (candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        data.get("candidat_id", 1),
-        data.get("examinateur", "Dominique"),
-        data.get("type_epreuve", "TCF oral"),
-        data.get("critere", ""),
-        data.get("niveau", ""),
-        data.get("note", 0),
-        data.get("commentaire", "")
-    ))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
-# Route pour générer un PDF
-@app.route("/api/generer-pdf/<int:candidat_id>")
+@app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
-    if not WEASYPRINT_DISPONIBLE:
-        return "Génération PDF non disponible (dépendances système WeasyPrint absentes)", 503
-
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire
-        FROM evaluations_candidats
-        WHERE candidat_id = ?
-    """, (candidat_id,))
-    evaluations = cursor.fetchall()
+    
+    # Récupérer les évaluations du candidat
+    evaluations = cursor.execute(
+        "SELECT * FROM evaluations_candidats WHERE candidat_id = ?", (candidat_id,)
+    ).fetchall()
     conn.close()
 
-    # Générer le HTML pour le PDF
-    html_content = f"""
-    <h1>Bilan d'évaluation TCF pour le candidat {candidat_id}</h1>
-    <table border="1">
-        <tr><th>Critère</th><th>Niveau</th><th>Note</th><th>Commentaire</th></tr>
-        {"".join(f"<tr><td>{eval[3]}</td><td>{eval[4]}</td><td>{eval[5]}</td><td>{eval[6]}</td></tr>" for eval in evaluations)}
-    </table>
-    """
-    pdf_bytes = HTML(string=html_content).write_pdf()
+    if not evaluations:
+        return jsonify({"error": "Aucune évaluation trouvée pour ce candidat"}), 404
+
+    # Création du buffer mémoire pour le PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=40, 
+        leftMargin=40, 
+        topMargin=40, 
+        bottomMargin=40
+    )
+    elements = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#1a365d'),
+        spaceAfter=15,
+        alignment=1 # Centré
+    )
+    
+    # En-tête du document
+    elements.append(Paragraph(f"Bilan d'Évaluation TCF Oral — Candidat #{candidat_id}", title_style))
+    elements.append(Spacer(1, 15))
+
+    # Construction des données du tableau
+    data = [["Épreuve", "Critère", "Niveau", "Note", "Commentaire"]]
+    for ev in evaluations:
+        data.append([
+            str(ev["type_epreuve"] or ""),
+            str(ev["critere"] or ""),
+            str(ev["niveau"] or ""),
+            str(ev["note"] or ""),
+            str(ev["commentaire"] or "")
+        ])
+
+    # Mise en forme du tableau (largeur totale disponible : ~515 points pour du A4 avec marges de 40)
+    table = Table(data, colWidths=[90, 90, 50, 45, 240])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f7fafc')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e0')),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    elements.append(table)
+    
+    # Génération du PDF
+    doc.build(elements)
+    buffer.seek(0)
+
     return send_file(
-        io.BytesIO(pdf_bytes),
+        buffer,
         as_attachment=True,
-        download_name=f"bilan_tcf_{candidat_id}.pdf",
+        download_name=f"bilan_candidat_{candidat_id}.pdf",
         mimetype="application/pdf"
     )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", port=8080, debug=True)
