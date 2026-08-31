@@ -12,20 +12,30 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__)
 CORS(app)
 
-# Route pour la page d'accueil
+# Exemple de données de critères (adaptables selon votre structure exacte)
+CRITERES_TCF = [
+    {"id": 1, "tache": "Tâche 1", "critere": "Interaction", "description": "Capacité à entrer en contact, échanger, réagir."},
+    {"id": 2, "tache": "Tâche 1", "critere": "Continuum / Discours", "description": "Capacité à se présenter et parler de soi de manière continue."},
+    {"id": 3, "tache": "Tâche 2", "critere": "Enquête / Information", "description": "Capacité à poser des questions, obtenir des informations."},
+    {"id": 4, "tache": "Tâche 3", "critere": "Argumentation", "description": "Capacité à défendre un point de vue, argumenter et négocier."}
+]
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Route pour générer le PDF directement à partir des données transmises par le formulaire
+# Route pour que le front-end récupère les critères au chargement
+@app.route("/api/criteres", methods=["GET"])
+def get_criteres():
+    return jsonify(CRITERES_TCF)
+
+# Route pour générer le PDF directement à partir des données transmises
 @app.route("/api/generer-pdf", methods=["POST"])
 def generer_pdf():
     try:
         data = request.json
         candidat_nom = data.get("candidat_nom", "Candidat_Inconnu").strip()
-        examinateur = data.get("examinateur", "Dominique")
-        type_epreuve = data.get("type_epreuve", "TCF oral")
-        evaluations = data.get("evaluations", []) # Liste de dicts : [{critere, niveau, note, commentaire}, ...]
+        evaluations = data.get("evaluations", [])
 
         if not evaluations:
             return jsonify({"error": "Aucune évaluation transmise"}), 400
@@ -81,7 +91,6 @@ def generer_pdf():
         doc.build(elements)
         buffer.seek(0)
 
-        # Nettoyage du nom pour le fichier de téléchargement
         nom_fichier_clean = "".join(c for c in candidat_nom if c.isalnum() or c in (' ', '_', '-')).strip().replace(" ", "_")
 
         return send_file(
