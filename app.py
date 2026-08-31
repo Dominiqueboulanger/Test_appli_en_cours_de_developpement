@@ -1,4 +1,4 @@
-from flask import Flask, send_file, jsonify, request
+from flask import Flask, render_template, send_file, jsonify, request
 from flask_cors import CORS
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -11,7 +11,6 @@ app = Flask(__name__)
 CORS(app)
 
 def get_db_connection():
-    # Remplacez 'database.db' par le nom exact de votre fichier de base de données si nécessaire
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     return conn
@@ -20,12 +19,15 @@ def get_db_connection():
 def home():
     return render_template("index.html")
 
+@app.route("/api/status", methods=["GET"])
+def status():
+    return jsonify({"status": "API en ligne", "app": "Évaluation TCF Oral"})
+
 @app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    # Récupérer les évaluations du candidat
+    
     evaluations = cursor.execute(
         "SELECT * FROM evaluations_candidats WHERE candidat_id = ?", (candidat_id,)
     ).fetchall()
@@ -34,18 +36,17 @@ def generer_pdf(candidat_id):
     if not evaluations:
         return jsonify({"error": "Aucune évaluation trouvée pour ce candidat"}), 404
 
-    # Création du buffer mémoire pour le PDF
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=40,
-        leftMargin=40,
-        topMargin=40,
-        bottomMargin=40,
+        buffer, 
+        pagesize=A4, 
+        rightMargin=40, 
+        leftMargin=40, 
+        topMargin=40, 
+        bottomMargin=40
     )
     elements = []
-
+    
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'TitleStyle',
@@ -53,14 +54,12 @@ def generer_pdf(candidat_id):
         fontSize=18,
         textColor=colors.HexColor('#1a365d'),
         spaceAfter=15,
-        alignment=1,  # Centré
+        alignment=1
     )
-
-    # En-tête du document
+    
     elements.append(Paragraph(f"Bilan d'Évaluation TCF Oral — Candidat #{candidat_id}", title_style))
     elements.append(Spacer(1, 15))
 
-    # Construction des données du tableau
     data = [["Épreuve", "Critère", "Niveau", "Note", "Commentaire"]]
     for ev in evaluations:
         data.append([
@@ -68,10 +67,9 @@ def generer_pdf(candidat_id):
             str(ev["critere"] or ""),
             str(ev["niveau"] or ""),
             str(ev["note"] or ""),
-            str(ev["commentaire"] or ""),
+            str(ev["commentaire"] or "")
         ])
 
-    # Mise en forme du tableau
     table = Table(data, colWidths=[90, 90, 50, 45, 240])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
@@ -87,8 +85,7 @@ def generer_pdf(candidat_id):
     ]))
 
     elements.append(table)
-
-    # Génération du PDF
+    
     doc.build(elements)
     buffer.seek(0)
 
@@ -96,7 +93,7 @@ def generer_pdf(candidat_id):
         buffer,
         as_attachment=True,
         download_name=f"bilan_candidat_{candidat_id}.pdf",
-        mimetype="application/pdf",
+        mimetype="application/pdf"
     )
 
 if __name__ == "__main__":
