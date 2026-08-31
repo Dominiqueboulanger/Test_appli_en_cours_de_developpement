@@ -88,6 +88,8 @@ def evaluer():
     except Exception as e:
         print("Erreur SQL lors de l'enregistrement :", str(e))
         return jsonify({"erreur": str(e)}), 500
+
+
 # Route pour générer un PDF avec ReportLab
 @app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
