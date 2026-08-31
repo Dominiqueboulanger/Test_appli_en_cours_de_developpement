@@ -4,41 +4,94 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+import sqlite3
 import os
 import io
 
+# Définition du chemin de base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
 
 app = Flask(__name__)
 CORS(app)
 
-# Exemple de données de critères (adaptables selon votre structure exacte)
-CRITERES_TCF = [
-    {"id": 1, "tache": "Tâche 1", "critere": "Interaction", "description": "Capacité à entrer en contact, échanger, réagir."},
-    {"id": 2, "tache": "Tâche 1", "critere": "Continuum / Discours", "description": "Capacité à se présenter et parler de soi de manière continue."},
-    {"id": 3, "tache": "Tâche 2", "critere": "Enquête / Information", "description": "Capacité à poser des questions, obtenir des informations."},
-    {"id": 4, "tache": "Tâche 3", "critere": "Argumentation", "description": "Capacité à défendre un point de vue, argumenter et négocier."}
-]
-
+# Route pour la page d'accueil
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Route pour que le front-end récupère les critères au chargement
-@app.route("/api/criteres", methods=["GET"])
+# Route pour récupérer les critères et niveaux
+@app.route("/api/criteres")
 def get_criteres():
-    return jsonify(CRITERES_TCF)
-
-# Route pour générer le PDF directement à partir des données transmises
-@app.route("/api/generer-pdf", methods=["POST"])
-def generer_pdf():
     try:
-        data = request.json
-        candidat_nom = data.get("candidat_nom", "Candidat_Inconnu").strip()
-        evaluations = data.get("evaluations", [])
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, critere, niveau, descripteur, marqueur
+            FROM aspects_qualitatifs_langue
+            ORDER BY id
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+    except Exception as e:
+        return jsonify({"erreur": str(e), "db_path": DB_NAME, "existe": os.path.exists(DB_NAME)}), 500
+
+    criteres_dict = {}
+    ordre_niveaux = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
+
+    for row_id, critere, niveau, descripteur, marqueur in rows:
+        texte = marqueur if marqueur else (descripteur if descripteur else "")
+        if critere not in criteres_dict:
+            criteres_dict[critere] = []
+        criteres_dict[critere].append({"niveau": niveau, "texte": texte})
+
+    resultat = []
+    for titre, paliers in criteres_dict.items():
+        paliers_tries = sorted(paliers, key=lambda x: ordre_niveaux.get(x["niveau"], 99))
+        resultat.append({"titre": titre, "paliers": paliers_tries})
+
+    return jsonify(resultat)
+
+# Route pour enregistrer une évaluation
+@app.route("/api/evaluer", methods=["POST"])
+def evaluer():
+    data = request.json
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO evaluations_candidats (candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            data.get("candidat_id", 1),
+            data.get("examinateur", "Dominique"),
+            data.get("type_epreuve", "TCF oral"),
+            data.get("critere", ""),
+            data.get("niveau", ""),
+            data.get("note", 0),
+            data.get("commentaire", "")
+        ))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"erreur": str(e)}), 500
+
+# Route pour générer un PDF avec ReportLab
+@app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
+def generer_pdf(candidat_id):
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        evaluations = cursor.execute("""
+            SELECT candidat_id, examinateur, type_epreuve, critere, niveau, note, commentaire
+            FROM evaluations_candidats
+            WHERE candidat_id = ?
+        """, (candidat_id,)).fetchall()
+        conn.close()
 
         if not evaluations:
-            return jsonify({"error": "Aucune évaluation transmise"}), 400
+            return jsonify({"error": "Aucune évaluation trouvée pour ce candidat"}), 404
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -61,19 +114,19 @@ def generer_pdf():
             alignment=1
         )
         
-        elements.append(Paragraph(f"Bilan d'Évaluation TCF Oral — {candidat_nom}", title_style))
+        elements.append(Paragraph(f"Bilan d'Évaluation TCF Oral — Candidat #{candidat_id}", title_style))
         elements.append(Spacer(1, 10))
 
-        table_data = [["Critère", "Niveau", "Note", "Commentaire"]]
+        data = [["Critère", "Niveau", "Note", "Commentaire"]]
         for ev in evaluations:
-            table_data.append([
-                str(ev.get("critere", "")),
-                str(ev.get("niveau", "")),
-                str(ev.get("note", "")),
-                str(ev.get("commentaire", ""))
+            data.append([
+                str(ev[3] or ""),
+                str(ev[4] or ""),
+                str(ev[5] or ""),
+                str(ev[6] or "")
             ])
 
-        table = Table(table_data, colWidths=[120, 50, 40, 305])
+        table = Table(data, colWidths=[120, 50, 40, 305])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -91,12 +144,10 @@ def generer_pdf():
         doc.build(elements)
         buffer.seek(0)
 
-        nom_fichier_clean = "".join(c for c in candidat_nom if c.isalnum() or c in (' ', '_', '-')).strip().replace(" ", "_")
-
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f"bilan_tcf_{nom_fichier_clean}.pdf",
+            download_name=f"bilan_tcf_{candidat_id}.pdf",
             mimetype="application/pdf"
         )
     except Exception as e:
