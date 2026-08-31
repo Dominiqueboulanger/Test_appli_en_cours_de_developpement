@@ -18,7 +18,7 @@ def get_db_connection():
 
 @app.route("/")
 def home():
-    return jsonify({"status": "API en ligne", "app": "Évaluation TCF Oral"})
+    return render_template("index.html")
 
 @app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
