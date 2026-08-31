@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 def get_db_connection():
-    # Remplace 'database.db' par le nom exact de ton fichier de base de données si nécessaire
+    # Remplacez 'database.db' par le nom exact de votre fichier de base de données si nécessaire
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     return conn
@@ -24,7 +24,7 @@ def home():
 def generer_pdf(candidat_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Récupérer les évaluations du candidat
     evaluations = cursor.execute(
         "SELECT * FROM evaluations_candidats WHERE candidat_id = ?", (candidat_id,)
@@ -37,15 +37,15 @@ def generer_pdf(candidat_id):
     # Création du buffer mémoire pour le PDF
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=A4, 
-        rightMargin=40, 
-        leftMargin=40, 
-        topMargin=40, 
-        bottomMargin=40
+        buffer,
+        pagesize=A4,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40,
     )
     elements = []
-    
+
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'TitleStyle',
@@ -53,9 +53,9 @@ def generer_pdf(candidat_id):
         fontSize=18,
         textColor=colors.HexColor('#1a365d'),
         spaceAfter=15,
-        alignment=1 # Centré
+        alignment=1,  # Centré
     )
-    
+
     # En-tête du document
     elements.append(Paragraph(f"Bilan d'Évaluation TCF Oral — Candidat #{candidat_id}", title_style))
     elements.append(Spacer(1, 15))
@@ -68,10 +68,10 @@ def generer_pdf(candidat_id):
             str(ev["critere"] or ""),
             str(ev["niveau"] or ""),
             str(ev["note"] or ""),
-            str(ev["commentaire"] or "")
+            str(ev["commentaire"] or ""),
         ])
 
-    # Mise en forme du tableau (largeur totale disponible : ~515 points pour du A4 avec marges de 40)
+    # Mise en forme du tableau
     table = Table(data, colWidths=[90, 90, 50, 45, 240])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
@@ -87,7 +87,7 @@ def generer_pdf(candidat_id):
     ]))
 
     elements.append(table)
-    
+
     # Génération du PDF
     doc.build(elements)
     buffer.seek(0)
@@ -96,7 +96,7 @@ def generer_pdf(candidat_id):
         buffer,
         as_attachment=True,
         download_name=f"bilan_candidat_{candidat_id}.pdf",
-        mimetype="application/pdf"
+        mimetype="application/pdf",
     )
 
 if __name__ == "__main__":
