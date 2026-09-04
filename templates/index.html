@@ -7,7 +7,6 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        /* Styles pour les pastilles de couleur et les boutons de sélection */
         .palier-btn {
             display: flex;
             align-items: center;
@@ -41,39 +40,55 @@
             font-size: 0.95rem;
             color: #2d3748;
         }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: sans-serif;">
+        
         <!-- Onglets -->
-        <div class="tabs">
-            <button class="tab-button active" onclick="changerOnglet('evaluation')">Évaluation TCF Oral</button>
+        <div class="tabs" style="margin-bottom: 20px; display: flex; gap: 10px;">
+            <button class="tab-button active" onclick="changerOnglet('evaluation')" style="padding: 10px 15px; cursor: pointer; font-weight: bold;">Évaluation TCF Oral</button>
         </div>
 
         <!-- Contenu de l'onglet Évaluation -->
-        <div id="evaluation" class="tab-content">
+        <div id="evaluation" class="tab-content active">
             <div id="cartes-evaluation" class="cartes-container"></div>
             
-            <div class="synthese-container" style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <h2>Synthèse & Évaluation Finale</h2>
+            <div class="synthese-container" style="margin-top: 25px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                <h2 style="color: #1a365d; font-size: 1.2rem; margin-bottom: 15px;">Synthèse & Évaluation Finale</h2>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="candidat-id">ID Candidat :</label>
-                    <input type="number" id="candidat-id" value="1" min="1" style="width: 100%; padding: 8px; margin-top: 4px;">
+                    <label for="candidat-id" style="display: block; font-weight: 600; margin-bottom: 5px;">ID Candidat :</label>
+                    <input type="number" id="candidat-id" value="1" min="1" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="commentaire">Commentaire :</label>
-                    <textarea id="commentaire" rows="3" style="width: 100%; padding: 8px; margin-top: 4px;"></textarea>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="commentaire" style="display: block; font-weight: 600; margin-bottom: 5px;">Commentaire :</label>
+                    <textarea id="commentaire" rows="3" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;"></textarea>
                 </div>
                 <div class="button-group" style="display: flex; gap: 10px;">
-                    <button onclick="enregistrerEvaluation()" style="flex: 1; padding: 10px; background: #2b6cb0; color: white; border: none; border-radius: 6px; cursor: pointer;">Enregistrer l'évaluation</button>
-                    <button onclick="genererPDF()" style="flex: 1; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 6px; cursor: pointer;">Générer PDF</button>
+                    <button onclick="enregistrerEvaluation()" style="flex: 1; padding: 12px; background: #2b6cb0; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Enregistrer l'évaluation</button>
+                    <button onclick="genererPDF()" style="flex: 1; padding: 12px; background: #3182ce; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Générer PDF</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Script de chargement dynamique des critères avec pastilles colorées -->
     <script>
+        // Gestion des onglets
+        function changerOnglet(nomOnglet) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(nomOnglet).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Chargement automatique des critères au démarrage
         document.addEventListener("DOMContentLoaded", () => {
             chargerCriteres();
         });
@@ -96,7 +111,7 @@
 
                         const titre = document.createElement('h3');
                         titre.innerText = critereObj.titre;
-                        titre.style.marginBottom = '10px';
+                        titre.style.marginBottom = '12px';
                         titre.style.color = '#1a365d';
                         carte.appendChild(titre);
 
@@ -106,21 +121,17 @@
                         critereObj.paliers.forEach(palier => {
                             const bouton = document.createElement('div');
                             bouton.className = 'palier-btn';
-                            // On stocke le vrai niveau (ex: "A1") en attribut data pour l'envoi en base de données
-                            bouton.dataset.niveau = palier.niveau;
+                            bouton.dataset.niveau = palier.niveau; // Stocké discrètement en arrière-plan
                             bouton.dataset.critere = critereObj.titre;
 
-                            // Construction de la ligne : Pastille de couleur + Texte du descripteur (sans afficher "A1" ou "A2")
+                            // Affichage uniquement de la pastille de couleur + texte descriptif (le texte "A1", "A2" est masqué pour le candidat)
                             bouton.innerHTML = `
                                 <div class="pastille-couleur" style="background-color: ${palier.couleur};"></div>
                                 <div class="palier-texte">${palier.texte}</div>
                             `;
 
-                            // Gestion de la sélection au clic
                             bouton.addEventListener('click', () => {
-                                // Retirer la sélection des autres boutons du même critère
                                 paliersContainer.querySelectorAll('.palier-btn').forEach(b => b.classList.remove('selected'));
-                                // Sélectionner celui-ci
                                 bouton.classList.add('selected');
                             });
 
@@ -131,14 +142,12 @@
                         container.appendChild(carte);
                     });
                 })
-                .catch(err => console.error("Erreur lors du chargement des critères :", err));
+                .catch(err => console.error("Erreur chargement critères :", err));
         }
 
         function enregistrerEvaluation() {
             const candidatId = document.getElementById('candidat-id').value;
             const commentaireGlobal = document.getElementById('commentaire').value;
-            
-            // Récupérer toutes les sélections faites par l'examinateur
             const selections = document.querySelectorAll('.palier-btn.selected');
             
             if (selections.length === 0) {
@@ -146,12 +155,11 @@
                 return;
             }
 
-            // Envoi de chaque critère évalué
             selections.forEach(sel => {
                 const payload = {
                     candidat_id: parseInt(candidatId),
                     critere: sel.dataset.critere,
-                    niveau: sel.dataset.niveau, // Le niveau réel (A1, A2...) est envoyé discrètement en arrière-plan
+                    niveau: sel.dataset.niveau,
                     note: 0,
                     commentaire: commentaireGlobal
                 };
@@ -169,17 +177,6 @@
         function genererPDF() {
             const candidatId = document.getElementById('candidat-id').value;
             window.location.href = `/api/generer-pdf/${candidatId}`;
-        }
-    </script>
-
-    <!-- Service Worker pour la PWA -->
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("/static/sw.js")
-                    .then(registration => console.log("ServiceWorker enregistré"))
-                    .catch(err => console.log("Erreur ServiceWorker: ", err));
-            });
         }
     </script>
 </body>
