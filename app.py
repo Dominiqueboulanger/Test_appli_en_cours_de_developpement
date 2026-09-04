@@ -8,7 +8,6 @@ import sqlite3
 import os
 import io
 
-# Définition du chemin de base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "data", "snapeval.db")
 
@@ -25,13 +24,11 @@ COULEURS_NIVEAUX = {
     "C2": "#0c4a6e"   # Bleu marine très sombre
 }
 
-# Route pour la page d'accueil
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Route pour récupérer les critères, niveaux et leurs couleurs associées
-@app.route("/api/criteres")
+@app.route("/api/criteres", methods=["GET"])
 def get_criteres():
     try:
         conn = sqlite3.connect(DB_NAME)
@@ -54,7 +51,6 @@ def get_criteres():
         if critere not in criteres_dict:
             criteres_dict[critere] = []
         
-        # Attribution de la couleur associée au niveau
         niveau_str = str(niveau).upper()
         couleur = COULEURS_NIVEAUX.get(niveau_str, "#ffffff")
         
@@ -71,7 +67,6 @@ def get_criteres():
 
     return jsonify(resultat)
 
-# Route pour enregistrer une évaluation
 @app.route("/api/evaluer", methods=["POST"])
 def evaluer():
     data = request.json
@@ -96,7 +91,6 @@ def evaluer():
     except Exception as e:
         return jsonify({"erreur": str(e)}), 500
 
-# Route pour générer un PDF avec ReportLab intégrant les couleurs des niveaux
 @app.route("/api/generer-pdf/<int:candidat_id>", methods=["GET"])
 def generer_pdf(candidat_id):
     try:
@@ -158,10 +152,8 @@ def generer_pdf(candidat_id):
 
             table_data.append([critere, niveau, note, commentaire])
 
-            # Coloration dynamique de la cellule du niveau dans le PDF selon le code couleur
             if niveau in COULEURS_NIVEAUX:
                 style_commands.append(('BACKGROUND', (1, index), (1, index), colors.HexColor(COULEURS_NIVEAUX[niveau])))
-                # Texte blanc pour les niveaux sombres (C1, C2), sombre pour les autres
                 text_col = colors.whitesmoke if niveau in ["C1", "C2"] else colors.HexColor('#1a202c')
                 style_commands.append(('TEXTCOLOR', (1, index), (1, index), text_col))
                 style_commands.append(('ALIGN', (1, index), (1, index), 'CENTER'))
