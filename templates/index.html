@@ -6,51 +6,171 @@
     <title>Snapeval - Évaluation TCF Oral</title>
     <link rel="manifest" href="/static/manifest.json">
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Styles pour les pastilles de couleur et les boutons de sélection */
+        .palier-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background-color: #ffffff;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+        .palier-btn:hover {
+            background-color: #f7fafc;
+        }
+        .palier-btn.selected {
+            border-color: #2b6cb0;
+            background-color: #ebf8ff;
+            box-shadow: 0 0 0 2px rgba(43, 108, 176, 0.2);
+        }
+        .pastille-couleur {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-right: 12px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .palier-texte {
+            font-size: 0.95rem;
+            color: #2d3748;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        
-
         <!-- Onglets -->
         <div class="tabs">
             <button class="tab-button active" onclick="changerOnglet('evaluation')">Évaluation TCF Oral</button>
-            
         </div>
 
         <!-- Contenu de l'onglet Évaluation -->
         <div id="evaluation" class="tab-content">
             <div id="cartes-evaluation" class="cartes-container"></div>
-            <div class="synthese-container">
+            
+            <div class="synthese-container" style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <h2>Synthèse & Évaluation Finale</h2>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 12px;">
                     <label for="candidat-id">ID Candidat :</label>
-                    <input type="number" id="candidat-id" value="1" min="1">
+                    <input type="number" id="candidat-id" value="1" min="1" style="width: 100%; padding: 8px; margin-top: 4px;">
                 </div>
-                <div class="form-group">
-                    <label for="niveau-global">Niveau global :</label>
-                    <select id="niveau-global">
-                        <option value="A1">A1</option>
-                        <option value="A2">A2</option>
-                        <option value="B1" selected>B1</option>
-                        <option value="B2">B2</option>
-                        <option value="C1">C1</option>
-                        <option value="C2">C2</option>
-                    </select>
-                </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 12px;">
                     <label for="commentaire">Commentaire :</label>
-                    <textarea id="commentaire" rows="3"></textarea>
+                    <textarea id="commentaire" rows="3" style="width: 100%; padding: 8px; margin-top: 4px;"></textarea>
                 </div>
-                <div class="button-group">
-                    <button onclick="enregistrerEvaluation()">Enregistrer l'évaluation</button>
-                    <button onclick="genererPDF()">Générer PDF</button>
+                <div class="button-group" style="display: flex; gap: 10px;">
+                    <button onclick="enregistrerEvaluation()" style="flex: 1; padding: 10px; background: #2b6cb0; color: white; border: none; border-radius: 6px; cursor: pointer;">Enregistrer l'évaluation</button>
+                    <button onclick="genererPDF()" style="flex: 1; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 6px; cursor: pointer;">Générer PDF</button>
                 </div>
             </div>
         </div>
-
-        <!-- Contenu de l'onglet Admin -->
-        
     </div>
+
+    <!-- Script de chargement dynamique des critères avec pastilles colorées -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerCriteres();
+        });
+
+        function chargerCriteres() {
+            fetch('/api/criteres')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('cartes-evaluation');
+                    container.innerHTML = '';
+
+                    data.forEach(critereObj => {
+                        const carte = document.createElement('div');
+                        carte.className = 'carte-critere';
+                        carte.style.marginBottom = '20px';
+                        carte.style.background = '#f8fafc';
+                        carte.style.padding = '15px';
+                        carte.style.borderRadius = '8px';
+                        carte.style.border = '1px solid #e2e8f0';
+
+                        const titre = document.createElement('h3');
+                        titre.innerText = critereObj.titre;
+                        titre.style.marginBottom = '10px';
+                        titre.style.color = '#1a365d';
+                        carte.appendChild(titre);
+
+                        const paliersContainer = document.createElement('div');
+                        paliersContainer.className = 'paliers-container';
+
+                        critereObj.paliers.forEach(palier => {
+                            const bouton = document.createElement('div');
+                            bouton.className = 'palier-btn';
+                            // On stocke le vrai niveau (ex: "A1") en attribut data pour l'envoi en base de données
+                            bouton.dataset.niveau = palier.niveau;
+                            bouton.dataset.critere = critereObj.titre;
+
+                            // Construction de la ligne : Pastille de couleur + Texte du descripteur (sans afficher "A1" ou "A2")
+                            bouton.innerHTML = `
+                                <div class="pastille-couleur" style="background-color: ${palier.couleur};"></div>
+                                <div class="palier-texte">${palier.texte}</div>
+                            `;
+
+                            // Gestion de la sélection au clic
+                            bouton.addEventListener('click', () => {
+                                // Retirer la sélection des autres boutons du même critère
+                                paliersContainer.querySelectorAll('.palier-btn').forEach(b => b.classList.remove('selected'));
+                                // Sélectionner celui-ci
+                                bouton.classList.add('selected');
+                            });
+
+                            paliersContainer.appendChild(bouton);
+                        });
+
+                        carte.appendChild(paliersContainer);
+                        container.appendChild(carte);
+                    });
+                })
+                .catch(err => console.error("Erreur lors du chargement des critères :", err));
+        }
+
+        function enregistrerEvaluation() {
+            const candidatId = document.getElementById('candidat-id').value;
+            const commentaireGlobal = document.getElementById('commentaire').value;
+            
+            // Récupérer toutes les sélections faites par l'examinateur
+            const selections = document.querySelectorAll('.palier-btn.selected');
+            
+            if (selections.length === 0) {
+                alert("Veuillez sélectionner au moins un niveau par critère.");
+                return;
+            }
+
+            // Envoi de chaque critère évalué
+            selections.forEach(sel => {
+                const payload = {
+                    candidat_id: parseInt(candidatId),
+                    critere: sel.dataset.critere,
+                    niveau: sel.dataset.niveau, // Le niveau réel (A1, A2...) est envoyé discrètement en arrière-plan
+                    note: 0,
+                    commentaire: commentaireGlobal
+                };
+
+                fetch('/api/evaluer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(err => console.error("Erreur enregistrement", err));
+            });
+
+            alert("Évaluations enregistrées avec succès !");
+        }
+
+        function genererPDF() {
+            const candidatId = document.getElementById('candidat-id').value;
+            window.location.href = `/api/generer-pdf/${candidatId}`;
+        }
+    </script>
 
     <!-- Service Worker pour la PWA -->
     <script>
@@ -62,7 +182,5 @@
             });
         }
     </script>
-
-    <script src="/static/js/app.js"></script>
 </body>
-</html> 
+</html>
